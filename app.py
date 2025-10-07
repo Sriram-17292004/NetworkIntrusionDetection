@@ -18,13 +18,13 @@ try:
 except Exception as e:
     print(f"FATAL: Error loading model files: {e}")
 
-# --- NEW: Add a root endpoint for health checks and browser visits ---
+# --- Add a root endpoint for health checks and browser visits ---
 @app.route('/', methods=['GET'])
 def home():
     """A simple endpoint to confirm the API is running."""
     return "<h1>Network Intrusion Detection API</h1><p>The API is live. Please POST to the /predict endpoint.</p>"
 
-# --- UPDATED: Use a specific /predict endpoint ---
+# --- Use a specific /predict endpoint ---
 @app.route('/predict', methods=['POST'])
 def predict():
     """
@@ -35,9 +35,17 @@ def predict():
         data = request.get_json(force=True)
         input_df = pd.DataFrame([data])
         input_df = input_df.reindex(columns=model_columns, fill_value=0)
+
+        # --- THE FINAL FIX: Ensure all columns are numeric, just like in training ---
+        for col in input_df.columns:
+            input_df[col] = pd.to_numeric(input_df[col], errors='coerce')
+        input_df.fillna(0, inplace=True)
+        # --- END OF FIX ---
+
         prediction_index = model.predict(input_df)
         prediction_label = label_encoder.inverse_transform(prediction_index)[0]
         return jsonify({'prediction': prediction_label})
+
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
